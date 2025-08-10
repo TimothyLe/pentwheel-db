@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-// Data and types for demonstration
+// Mock data and types for demonstration
 interface Component {
   id: string;
   name: string;
@@ -53,8 +53,8 @@ interface BudgetEntry {
   description: string;
 }
 
-// API service to Supabase calls
-class DummyDatabaseService {
+// API service simulate Supabase calls
+class MockDatabaseService {
   static async getDashboardMetrics() {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -313,7 +313,7 @@ const DatabaseManagementPlatform: React.FC = () => {
           <div className="text-gray-600 text-sm text-right">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span>Dummy Database Connected</span>
+              <span>Mock Database Connected</span>
             </div>
             <div className="text-xs text-gray-500 mt-1">Ready for Supabase integration</div>
           </div>
@@ -397,8 +397,8 @@ const OverviewTab: React.FC<{ setLoading: (loading: boolean) => void; setError: 
       try {
         setLoading(true);
         const [metricsData, lowStockData] = await Promise.all([
-          DummyDatabaseService.getDashboardMetrics(),
-          DummyDatabaseService.getLowStockComponents(),
+          MockDatabaseService.getDashboardMetrics(),
+          MockDatabaseService.getLowStockComponents(),
         ]);
         setMetrics(metricsData);
         setLowStockItems(lowStockData);
@@ -503,7 +503,7 @@ const ReturnsTab: React.FC<{ setLoading: (loading: boolean) => void; setError: (
     const fetchReturns = async () => {
       try {
         setLoading(true);
-        const data = await DummyDatabaseService.getReturns();
+        const data = await MockDatabaseService.getReturns();
         setReturns(data);
       } catch (err: any) {
         setError(err.message);
@@ -517,7 +517,7 @@ const ReturnsTab: React.FC<{ setLoading: (loading: boolean) => void; setError: (
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      await DummyDatabaseService.updateReturnStatus(id, status);
+      await MockDatabaseService.updateReturnStatus(id, status);
       // Update local state
       setReturns(prev => prev.map(item => 
         item.id === id ? { ...item, status } : item
@@ -592,7 +592,7 @@ const RepairsTab: React.FC<{ setLoading: (loading: boolean) => void; setError: (
     const fetchRepairs = async () => {
       try {
         setLoading(true);
-        const data = await DummyDatabaseService.getRepairs();
+        const data = await MockDatabaseService.getRepairs();
         setRepairs(data);
       } catch (err: any) {
         setError(err.message);
@@ -660,7 +660,7 @@ const ShipmentsTab: React.FC<{ setLoading: (loading: boolean) => void; setError:
     const fetchShipments = async () => {
       try {
         setLoading(true);
-        const data = await DummyDatabaseService.getShipments();
+        const data = await MockDatabaseService.getShipments();
         setShipments(data);
       } catch (err: any) {
         setError(err.message);
@@ -734,5 +734,198 @@ const InventoryTab: React.FC<{ setLoading: (loading: boolean) => void; setError:
     const fetchComponents = async () => {
       try {
         setLoading(true);
-        const data = await DummyDatabaseService.getComponents();
-        setComponents(
+        const data = await MockDatabaseService.getComponents();
+        setComponents(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchComponents();
+  }, [setLoading, setError]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-white">Inventory Management</h2>
+        <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+          + Add Component
+        </button>
+      </div>
+
+      <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left p-4 font-semibold text-gray-700">SKU</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Name</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Category</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Current Stock</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Reorder Level</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Unit Cost</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Supplier</th>
+              </tr>
+            </thead>
+            <tbody>
+              {components.map((component) => (
+                <tr key={component.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="p-4 font-mono text-sm">{component.sku}</td>
+                  <td className="p-4 font-medium">{component.name}</td>
+                  <td className="p-4">{component.category}</td>
+                  <td className="p-4">
+                    <span className={`font-bold ${
+                      component.current_stock <= component.reorder_level ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {component.current_stock}
+                    </span>
+                  </td>
+                  <td className="p-4">{component.reorder_level}</td>
+                  <td className="p-4">${component.unit_cost.toFixed(2)}</td>
+                  <td className="p-4">{component.supplier}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const BudgetTab: React.FC<{ setLoading: (loading: boolean) => void; setError: (error: string | null) => void }> = ({ 
+  setLoading, setError 
+}) => {
+  const [budgetEntries, setBudgetEntries] = useState<BudgetEntry[]>([]);
+
+  useEffect(() => {
+    const fetchBudgetEntries = async () => {
+      try {
+        setLoading(true);
+        const data = await MockDatabaseService.getBudgetEntries();
+        setBudgetEntries(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBudgetEntries();
+  }, [setLoading, setError]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-white">Budget Management</h2>
+        <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+          + Add Budget Entry
+        </button>
+      </div>
+
+      <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left p-4 font-semibold text-gray-700">Week</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Category</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Budgeted</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Actual</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Remaining</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Usage %</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {budgetEntries.map((entry) => {
+                const remaining = entry.budgeted_amount - entry.actual_amount;
+                const usagePercent = (entry.actual_amount / entry.budgeted_amount) * 100;
+                
+                return (
+                  <tr key={entry.id} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="p-4">{new Date(entry.week_start).toLocaleDateString()}</td>
+                    <td className="p-4 font-medium">{entry.category}</td>
+                    <td className="p-4">${entry.budgeted_amount.toLocaleString()}</td>
+                    <td className="p-4">${entry.actual_amount.toLocaleString()}</td>
+                    <td className="p-4">
+                      <span className={remaining >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        ${remaining.toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              usagePercent > 90 ? 'bg-red-500' : 
+                              usagePercent > 75 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm">{usagePercent.toFixed(0)}%</span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-sm text-gray-600">{entry.description}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper Components
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'in-progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(status)}`}>
+      {status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+    </span>
+  );
+};
+
+const PriorityBadge: React.FC<{ priority: string }> = ({ priority }) => {
+  const getPriorityClass = (priority: string) => {
+    switch (priority) {
+      case 'critical':
+        return 'bg-red-100 text-red-800';
+      case 'high':
+        return 'bg-orange-100 text-orange-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'low':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityClass(priority)}`}>
+      {priority.charAt(0).toUpperCase() + priority.slice(1)}
+    </span>
+  );
+};
+
+export default DatabaseManagementPlatform;
