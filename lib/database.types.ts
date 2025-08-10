@@ -273,4 +273,128 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "returns_company_id_fkey"
-            columns:
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipments: {
+        Row: {
+          actual_arrival: string | null
+          carrier: string | null
+          created_at: string | null
+          destination: string | null
+          estimated_arrival: string | null
+          id: string
+          notes: string | null
+          origin: string | null
+          serial_end: string | null
+          serial_start: string | null
+          shipment_id: string
+          status: Database["public"]["Enums"]["status_type"] | null
+          total_units: number | null
+          tracking_number: string | null
+          type: Database["public"]["Enums"]["shipment_type"]
+          updated_at: string | null
+          weight_kg: number | null
+        }
+        Insert: {
+          actual_arrival?: string | null
+          carrier?: string | null
+          created_at?: string | null
+          destination?: string | null
+          estimated_arrival?: string | null
+          id?: string
+          notes?: string | null
+          origin?: string | null
+          serial_end?: string | null
+          serial_start?: string | null
+          shipment_id: string
+          status?: Database["public"]["Enums"]["status_type"] | null
+          total_units?: number | null
+          tracking_number?: string | null
+          type: Database["public"]["Enums"]["shipment_type"]
+          updated_at?: string | null
+          weight_kg?: number | null
+        }
+        Update: {
+          actual_arrival?: string | null
+          carrier?: string | null
+          created_at?: string | null
+          destination?: string | null
+          estimated_arrival?: string | null
+          id?: string
+          notes?: string | null
+          origin?: string | null
+          serial_end?: string | null
+          serial_start?: string | null
+          shipment_id?: string
+          status?: Database["public"]["Enums"]["status_type"] | null
+          total_units?: number | null
+          tracking_number?: string | null
+          type?: Database["public"]["Enums"]["shipment_type"]
+          updated_at?: string | null
+          weight_kg?: number | null
+        }
+        Relationships: []
+      }
+      stock_movements: {
+        Row: {
+          component_id: string | null
+          created_at: string | null
+          id: string
+          movement_type: string
+          notes: string | null
+          quantity: number
+          reference_id: string | null
+          reference_type: string | null
+        }
+        Insert: {
+          component_id?: string | null
+          created_at?: string | null
+          id?: string
+          movement_type: string
+          notes?: string | null
+          quantity: number
+          reference_id?: string | null
+          reference_type?: string | null
+        }
+        Update: {
+          component_id?: string | null
+          created_at?: string | null
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          quantity?: number
+          reference_id?: string | null
+          reference_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      repair_priority: "low" | "medium" | "high" | "critical"
+      shipment_type: "incoming" | "outgoing"
+      status_type: "completed" | "pending" | "in-progress" | "cancelled"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
