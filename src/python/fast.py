@@ -902,22 +902,6 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
-# Requirements for this application:
-"""
-fastapi==0.104.1
-uvicorn==0.24.0
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-pydantic==2.5.0
-python-multipart==0.0.6
-"""
-
-# To run this application:
-# 1. Install the requirements: pip install -r requirements.txt
-# 2. Update the DATABASE_URL with your PostgreSQL connection string
-# 3. Run: python main.py or uvicorn main:app --reload
-# 4. Access the interactive API docs at: http://localhost:8000/docscomponent
-
 @app.put("/repair-components/{repair_component_id}", response_model=RepairComponentResponse)
 def update_repair_component(repair_component_id: uuid.UUID, repair_component: RepairComponentUpdate, db: Session = Depends(get_db)):
     db_repair_component = db.query(RepairComponent).filter(RepairComponent.id == repair_component_id).first()
