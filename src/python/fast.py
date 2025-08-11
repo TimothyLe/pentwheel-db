@@ -696,6 +696,228 @@ def create_repair_component(repair_component: RepairComponentCreate, db: Session
     db.refresh(db_repair_component)
     return db_repair_component
 
+@app.delete("/repair-components/{repair_component_id}")
+def delete_repair_component(repair_component_id: uuid.UUID, db: Session = Depends(get_db)):
+    db_repair_component = db.query(RepairComponent).filter(RepairComponent.id == repair_component_id).first()
+    if db_repair_component is None:
+        raise HTTPException(status_code=404, detail="Repair component not found")
+    
+    db.delete(db_repair_component)
+    db.commit()
+    return {"message": "Repair component deleted successfully"}
+
+# Stock Movements endpoints
+@app.get("/stock-movements/", response_model=List[StockMovementResponse])
+def get_stock_movements(skip: int = 0, limit: int = 100, component_id: Optional[uuid.UUID] = None, movement_type: Optional[MovementType] = None, db: Session = Depends(get_db)):
+    query = db.query(StockMovement)
+    if component_id:
+        query = query.filter(StockMovement.component_id == component_id)
+    if movement_type:
+        query = query.filter(StockMovement.movement_type == movement_type.value)
+    stock_movements = query.offset(skip).limit(limit).all()
+    return stock_movements
+
+@app.get("/stock-movements/{stock_movement_id}", response_model=StockMovementResponse)
+def get_stock_movement(stock_movement_id: uuid.UUID, db: Session = Depends(get_db)):
+    stock_movement = db.query(StockMovement).filter(StockMovement.id == stock_movement_id).first()
+    if stock_movement is None:
+        raise HTTPException(status_code=404, detail="Stock movement not found")
+    return stock_movement
+
+@app.post("/stock-movements/", response_model=StockMovementResponse)
+def create_stock_movement(stock_movement: StockMovementCreate, db: Session = Depends(get_db)):
+    # Verify component exists
+    component = db.query(Component).filter(Component.id == stock_movement.component_id).first()
+    if component is None:
+        raise HTTPException(status_code=404, detail="Component not found")
+    
+    db_stock_movement = StockMovement(**stock_movement.dict())
+    db.add(db_stock_movement)
+    db.commit()
+    db.refresh(db_stock_movement)
+    return db_stock_movement
+
+# Budget Entries endpoints
+@app.get("/budget-entries/", response_model=List[BudgetEntryResponse])
+def get_budget_entries(skip: int = 0, limit: int = 100, category: Optional[str] = None, week_start: Optional[date] = None, db: Session = Depends(get_db)):
+    query = db.query(BudgetEntry)
+    if category:
+        query = query.filter(BudgetEntry.category == category)
+    if week_start:
+        query = query.filter(BudgetEntry.week_start == week_start)
+    budget_entries = query.offset(skip).limit(limit).all()
+    return budget_entries
+
+@app.get("/budget-entries/{budget_entry_id}", response_model=BudgetEntryResponse)
+def get_budget_entry(budget_entry_id: uuid.UUID, db: Session = Depends(get_db)):
+    budget_entry = db.query(BudgetEntry).filter(BudgetEntry.id == budget_entry_id).first()
+    if budget_entry is None:
+        raise HTTPException(status_code=404, detail="Budget entry not found")
+    return budget_entry
+
+@app.post("/budget-entries/", response_model=BudgetEntryResponse)
+def create_budget_entry(budget_entry: BudgetEntryCreate, db: Session = Depends(get_db)):
+    db_budget_entry = BudgetEntry(**budget_entry.dict())
+    db.add(db_budget_entry)
+    db.commit()
+    db.refresh(db_budget_entry)
+    return db_budget_entry
+
+@app.put("/budget-entries/{budget_entry_id}", response_model=BudgetEntryResponse)
+def update_budget_entry(budget_entry_id: uuid.UUID, budget_entry: BudgetEntryUpdate, db: Session = Depends(get_db)):
+    db_budget_entry = db.query(BudgetEntry).filter(BudgetEntry.id == budget_entry_id).first()
+    if db_budget_entry is None:
+        raise HTTPException(status_code=404, detail="Budget entry not found")
+    
+    update_data = budget_entry.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_budget_entry, field, value)
+    
+    db.commit()
+    db.refresh(db_budget_entry)
+    return db_budget_entry
+
+@app.delete("/budget-entries/{budget_entry_id}")
+def delete_budget_entry(budget_entry_id: uuid.UUID, db: Session = Depends(get_db)):
+    db_budget_entry = db.query(BudgetEntry).filter(BudgetEntry.id == budget_entry_id).first()
+    if db_budget_entry is None:
+        raise HTTPException(status_code=404, detail="Budget entry not found")
+    
+    db.delete(db_budget_entry)
+    db.commit()
+    return {"message": "Budget entry deleted successfully"}
+
+# Analytics and reporting endpoints
+@app.get("/analytics/repairs/status-summary")
+def get_repair_status_summary(db: Session = Depends(get_db)):
+    """Get summary of repairs by status"""
+    result = db.query(
+        Repair.status,
+        func.count(Repair.id).label('count'),
+        func.sum(Repair.labor_cost + Repair.parts_cost).label('total_cost')
+    ).group_by(Repair.status).all()
+    
+    return [
+        {
+            "status": row.status,
+            "count": row.count,
+            "total_cost": float(row.total_cost) if row.total_cost else 0
+        }
+        for row in result
+    ]
+
+@app.get("/analytics/repairs/priority-summary")
+def get_repair_priority_summary(db: Session = Depends(get_db)):
+    """Get summary of repairs by priority"""
+    result = db.query(
+        Repair.priority,
+        func.count(Repair.id).label('count')
+    ).group_by(Repair.priority).all()
+    
+    return [
+        {
+            "priority": row.priority,
+            "count": row.count
+        }
+        for row in result
+    ]
+
+@app.get("/analytics/components/low-stock")
+def get_low_stock_components(db: Session = Depends(get_db)):
+    """Get components that are at or below reorder level"""
+    components = db.query(Component).filter(
+        Component.current_stock <= Component.reorder_level
+    ).all()
+    
+    return [
+        {
+            "id": comp.id,
+            "name": comp.name,
+            "sku": comp.sku,
+            "current_stock": comp.current_stock,
+            "reorder_level": comp.reorder_level,
+            "difference": comp.reorder_level - comp.current_stock
+        }
+        for comp in components
+    ]
+
+@app.get("/analytics/shipments/status-summary")
+def get_shipment_status_summary(db: Session = Depends(get_db)):
+    """Get summary of shipments by status and type"""
+    result = db.query(
+        Shipment.type,
+        Shipment.status,
+        func.count(Shipment.id).label('count'),
+        func.sum(Shipment.total_units).label('total_units')
+    ).group_by(Shipment.type, Shipment.status).all()
+    
+    return [
+        {
+            "type": row.type,
+            "status": row.status,
+            "count": row.count,
+            "total_units": row.total_units or 0
+        }
+        for row in result
+    ]
+
+@app.get("/analytics/budget/weekly-summary")
+def get_weekly_budget_summary(week_start: date = Query(...), db: Session = Depends(get_db)):
+    """Get budget summary for a specific week"""
+    entries = db.query(BudgetEntry).filter(BudgetEntry.week_start == week_start).all()
+    
+    if not entries:
+        raise HTTPException(status_code=404, detail="No budget entries found for this week")
+    
+    total_budgeted = sum(float(entry.budgeted_amount) for entry in entries)
+    total_actual = sum(float(entry.actual_amount) for entry in entries)
+    
+    return {
+        "week_start": week_start,
+        "week_end": entries[0].week_end if entries else None,
+        "total_budgeted": total_budgeted,
+        "total_actual": total_actual,
+        "variance": total_actual - total_budgeted,
+        "variance_percentage": ((total_actual - total_budgeted) / total_budgeted * 100) if total_budgeted > 0 else 0,
+        "categories": [
+            {
+                "category": entry.category,
+                "budgeted_amount": float(entry.budgeted_amount),
+                "actual_amount": float(entry.actual_amount),
+                "variance": float(entry.actual_amount - entry.budgeted_amount),
+                "description": entry.description
+            }
+            for entry in entries
+        ]
+    }
+
+# Health check endpoint
+@app.get("/health")
+def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "message": "Pentwheel API is running"}
+
+# Main function to run the app
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+# Requirements for this application:
+"""
+fastapi==0.104.1
+uvicorn==0.24.0
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+pydantic==2.5.0
+python-multipart==0.0.6
+"""
+
+# To run this application:
+# 1. Install the requirements: pip install -r requirements.txt
+# 2. Update the DATABASE_URL with your PostgreSQL connection string
+# 3. Run: python main.py or uvicorn main:app --reload
+# 4. Access the interactive API docs at: http://localhost:8000/docscomponent
+
 @app.put("/repair-components/{repair_component_id}", response_model=RepairComponentResponse)
 def update_repair_component(repair_component_id: uuid.UUID, repair_component: RepairComponentUpdate, db: Session = Depends(get_db)):
     db_repair_component = db.query(RepairComponent).filter(RepairComponent.id == repair_component_id).first()
