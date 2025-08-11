@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 
+  postgres:
+    image: postgres:15
+    container_name: pentwheel_postgres
+    environment:
+      POSTGRES_DB: pentwheel_db
+      POSTGRES_USER: pentwheel_user
+      POSTGRES_PASSWORD: pentwheel_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - pentwheel_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pentwheel_user -d pentwheel_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pentwheel_api
+    environment:
+      DATABASE_URL: postgresql://pentwheel_user:pentwheel_password@postgres:5432/pentwheel_db
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pentwheel_network
+    restart: unless-stopped
+    volumes:
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis 
+  redis:
+    image: redis:7-alpine
+    container_name: pentwheel_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - pentwheel_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  pentwheel_network:
+    driver: bridge
+
